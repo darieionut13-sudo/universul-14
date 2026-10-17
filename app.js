@@ -3,6 +3,8 @@
 const C=window.UniverseCore, config=window.UNIVERSE_CONFIG;
 const $=id=>document.getElementById(id);
 const isLive=config.mode==='live';
+const qaMode=new URLSearchParams(location.search).get('test')==='1';
+if(qaMode)config.eventId+='-qa';
 const key='universe:'+config.eventId;
 let stars=[],step=0,busy=false,loadBusy=false,hasLoaded=!isLive;
 let draft=null;
@@ -40,12 +42,12 @@ if('IntersectionObserver' in window){const watch=new IntersectionObserver(entrie
 const hero=document.querySelector('.intro');
 if(window.matchMedia('(hover: hover)').matches&&!reducedMotion.matches){hero.addEventListener('pointermove',e=>{const r=hero.getBoundingClientRect();hero.style.setProperty('--hero-x',((e.clientX-r.left)/r.width-.5)*16+'deg');hero.style.setProperty('--hero-y',-((e.clientY-r.top)/r.height-.5)*12+'deg');});hero.addEventListener('pointerleave',()=>{hero.style.setProperty('--hero-x','0deg');hero.style.setProperty('--hero-y','0deg');});}
 $('footer-event').textContent=[config.birthdayName||'14 ANI',dateLabel()||'O MICĂ INFINITATE'].join(' · ');
-$('mode-note').textContent=isLive?'Mesajele trimise de invitați se adună în același cer. Numele și răspunsurile pot fi citite de cei care au linkul.':'MOD DEMONSTRATIV · Mesajele de probă rămân doar în acest browser.';
+$('mode-note').textContent=qaMode?'UNIVERS DE TEST · Contribuțiile de aici nu apar în universul petrecerii.':isLive?'Un singur univers, toate mesajele prietenilor. Sincronizare automată.':'MOD DEMONSTRATIV · Mesajele de probă rămân doar în acest browser.';
 for(let i=0;i<95;i++){const d=node('i');d.style.left=((i*73.37)%100)+'%';d.style.top=((i*47.73)%100)+'%';d.style.animationDelay=-(i%5)+'s';d.style.opacity=.12+(i%5)/10;$('dust').append(d);}
 function renderSky(){
   $('stars').replaceChildren();$('connections').replaceChildren();$('star-count').textContent=stars.length;$('empty').hidden=!!stars.length;$('random').disabled=!stars.length;
   stars.forEach((s,i)=>{
-    const p=C.position(s.id,i,stars.length),b=node('button',undefined,'star');b.type='button';b.style.left=p.x+'%';b.style.top=p.y+'%';b.style.setProperty('--star',s.color);b.style.setProperty('--pulse-delay',(-i*.7)+'s');b.style.setProperty('--arrival-delay',(Math.min(i,20)*.05)+'s');b.setAttribute('aria-label',`Citește steaua: ${s.name}`);b.append(node('span','✦','star-mark'),node('span',s.name,'star-name'));b.onclick=()=>readStar(s);$('stars').append(b);
+    const p=C.position(s.id,i,stars.length),b=node('button',undefined,'star');b.type='button';b.style.left=p.x+'%';b.style.top=p.y+'%';b.style.setProperty('--star',s.color);b.style.setProperty('--pulse-delay',(-i*.7)+'s');b.style.setProperty('--arrival-delay',(Math.min(i,20)*.05)+'s');b.dataset.starId=s.id;b.setAttribute('aria-label',`Citește steaua: ${s.name}`);b.append(node('span','✦','star-mark'),node('span',s.name,'star-name'));b.onclick=()=>readStar(s);$('stars').append(b);
     if(i>0){const previous=C.position(stars[i-1].id,i-1,stars.length);const l=document.createElementNS('http://www.w3.org/2000/svg','line');for(const [k,v] of Object.entries({x1:previous.x,y1:previous.y,x2:p.x,y2:p.y}))l.setAttribute(k,v);$('connections').append(l);}
   });
 }
@@ -56,19 +58,22 @@ function readStar(s){
 }
 function renderDirectory(){const query=$('search').value.trim().toLocaleLowerCase('ro');const list=$('guest-list');list.replaceChildren();const filtered=stars.filter(s=>s.name.toLocaleLowerCase('ro').includes(query));for(const s of filtered){const b=node('button',undefined,'guest-item');const mark=node('span','✦');mark.style.color=s.color;b.append(mark,node('strong',s.name),node('span','↗'));b.onclick=()=>{$('guests').close();readStar(s);};list.append(b);}if(!filtered.length)list.append(node('p','Nicio stea găsită.','helper'));}
 async function rpc(name,payload){
-  if(!/^https:\/\/[^/]+\.supabase\.co\/?$/.test(config.supabaseUrl)||!config.publishableKey)throw new Error('configuration');
-  const response=await fetch(config.supabaseUrl.replace(/\/$/,'')+'/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.publishableKey},body:JSON.stringify(payload),signal:AbortSignal.timeout(12000)});
-  if(!response.ok)throw new Error('server');return response.json();
+ if(!config.apiUrl)throw new Error('configuration');
+ const reading=name==='universe_list';const endpoint=config.apiUrl+'/api/stars';
+ const body=reading?undefined:JSON.stringify({event:config.eventId,id:payload.p_id,name:payload.p_name,color:payload.p_color,answers:payload.p_answers});
+ const response=await fetch(endpoint+(reading?'?event='+encodeURIComponent(config.eventId):''),{method:reading?'GET':'POST',headers:reading?{}:{'Content-Type':'application/json'},body,cache:'no-store',signal:AbortSignal.timeout(15000)});
+ const data=await response.json();if(!response.ok)throw new Error(data.error||'server');return data;
 }
+let refreshPromise=null;
 async function refresh(){
- if(!isLive||loadBusy||document.hidden)return;loadBusy=true;
- try{const result=await rpc('universe_list',{p_event:config.eventId});if(!Array.isArray(result))throw new Error('response');stars=result.filter(validRecord);hasLoaded=true;renderSky();$('sync-status').classList.remove('bad');$('sync-status').textContent='Cer actualizat · '+new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});}
- catch(e){$('sync-status').classList.add('bad');$('sync-status').textContent=e.message==='configuration'?'Conectarea nu este configurată. Completează config.js înainte de petrecere.':'Nu putem actualiza cerul acum. Verifică internetul; mesajele deja încărcate rămân afișate.';}
- finally{loadBusy=false;}
+ if(!isLive||document.hidden)return null;if(refreshPromise)return refreshPromise;
+ refreshPromise=(async()=>{try{const result=await rpc('universe_list',{p_event:config.eventId});if(!Array.isArray(result))throw new Error('response');const next=result.filter(validRecord);const changed=JSON.stringify(next)!==JSON.stringify(stars);stars=next;hasLoaded=true;if(changed)renderSky();$('sync-status').classList.remove('bad');$('sync-status').textContent='Sincronizat · '+new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});return stars;}
+ catch(e){$('sync-status').classList.add('bad');$('sync-status').textContent='Nu putem actualiza cerul acum. Verifică internetul; mesajele deja încărcate rămân afișate.';return null;}
+ finally{refreshPromise=null;}})();return refreshPromise;
 }
 const sampleNames=['Alexia','Mara','Daria','Andrei','Sofia','Ioana','David','Teo','Ana'];
 if(!isLive){const stored=storageRead(key+':stars',null);stars=Array.isArray(stored)?stored.filter(validRecord):sampleNames.map((name,i)=>({id:'demo-'+i,name,color:C.COLORS[i%C.COLORS.length],answers:[['Să ajungi în toate locurile pe care acum le ai salvate în telefon.','Să ai curajul să-ți urmezi propriul drum.','Să cânți pe scena la care visezi.'][i%3],'Felul în care faci o zi obișnuită să pară o aventură.','Planuri mari, baterie 2%','Un concert și o călătorie cu trenul, cu playlistul nostru pe repeat.','Sper că încă râzi la aceleași glume. Și că nu ai uitat cât de mult poți!']}));$('sync-status').textContent='Exemple demonstrative · salvare locală pe acest dispozitiv';}
-renderSky();refresh();if(isLive)setInterval(refresh,15000);document.addEventListener('visibilitychange',refresh);
+renderSky();refresh();if(isLive)setInterval(refresh,5000);document.addEventListener('visibilitychange',refresh);window.addEventListener('online',refresh);
 function start(){
  const saved=storageRead(key+':draft',null);draft=saved&&typeof saved.id==='string'&&typeof saved.name==='string'&&Array.isArray(saved.answers)&&saved.answers.length===5&&saved.answers.every(a=>typeof a==='string')?saved:newDraft();if(!C.COLORS.includes(draft.color))draft.color=C.COLORS[0];step=0;renderWizard();openDialog($('wizard'));
 }
@@ -120,10 +125,19 @@ function renderWizard(){
   const skip=node('button','Las acest gând pentru altădată →','quiet skip');skip.type='button';skip.onclick=()=>{draft.answers[i]='';saveDraft();step++;renderWizard();};back.append(label,input,count,inspire,ideas,skip);back.setAttribute('inert','');
   function unfold(){if(cardOpen)return;cardOpen=true;card.classList.add('is-open');front.setAttribute('inert','');front.setAttribute('aria-hidden','true');back.removeAttribute('inert');$('next').textContent=step===5?'Vezi steaua completă →':'Următorul gând →';}
   reveal.onclick=unfold;rotor.append(front,back);card.append(rotor);out.append(card);$('next').textContent='Deschide întrebarea ✧';
-  if(draft.answers[i].trim())unfold();
+  if(reducedMotion.matches)unfold();else requestAnimationFrame(()=>requestAnimationFrame(()=>{if(card.isConnected&&step===i+1)unfold();}));
  }
  else {const title=node('h2','Cinci gânduri. O stea doar a ta.');title.id='wizard-title';out.append(title,node('p',`${draft.name}, așa va arăta amintirea ta pentru Antonia.`,'helper'));draft.answers.forEach((a,i)=>{const section=node('div',undefined,'answer');section.append(node('h4',C.QUESTIONS[i]),node('p',a||'Întrebare sărită'));const edit=node('button','Editează ↗','review-edit');edit.type='button';edit.onclick=()=>jumpTo(i+1);section.append(edit);out.append(section);});out.append(node('div',isLive?'Numele și răspunsurile tale vor putea fi citite de sărbătorită și de persoanele care au linkul. Apăsând „Trimite steaua”, alegi să le adaugi în univers.':'Aceasta este o probă: steaua va fi păstrată numai în acest browser. Niciun mesaj nu este trimis sărbătoritei.','consent'));}
  $('wizard').scrollTop=0;
+}
+async function flyIntoUniverse(value){
+ $('wizard').close();await refresh();if(!$('universe').open)openDialog($('universe'));
+ const index=stars.findIndex(s=>s.id===value.id);const p=C.position(value.id,Math.max(0,index),stars.length);
+ const destination=Array.from($('stars').children).find(e=>e.dataset.starId===value.id);
+ const flyer=node('div','✦','sky-launch');flyer.setAttribute('aria-hidden','true');flyer.style.setProperty('--landing-x',p.x+'%');flyer.style.setProperty('--landing-y',p.y+'%');flyer.style.setProperty('--launch-color',value.color);
+ const message=node('div','Acum faci parte din universul Antoniei.','launch-note');message.setAttribute('role','status');
+ if(destination)destination.classList.add('arrival-target');$('sky').append(flyer,message);
+ await new Promise(resolve=>setTimeout(resolve,reducedMotion.matches?0:1200));flyer.remove();if(destination){destination.classList.remove('arrival-target');destination.classList.add('just-arrived');}celebrate(value.color);setTimeout(()=>message.remove(),4200);
 }
 $('star-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;if(step>0&&step<=5&&!cardOpen){$('wizard-content').querySelector('.open-question').click();return;}capture();if(step===0&&!draft.name.trim()){$('form-error').textContent='Scrie numele tău ca să continuăm.';return;}
@@ -134,7 +148,7 @@ $('star-form').addEventListener('submit',async e=>{
    if(isLive){await rpc('universe_add',{p_event:config.eventId,p_id:value.id,p_name:value.name,p_color:value.color,p_answers:value.answers});}
    else {const next=[...stars.filter(s=>s.id!==value.id),value];if(!storageWrite(key+':stars',next))throw new Error('local');}
    if(!stars.some(s=>s.id===value.id))stars.push(value);renderSky();storageRemove(key+':draft');celebrate(value.color);
-   $('progress').replaceChildren();$('wizard-content').replaceChildren();const success=node('div',undefined,'success');success.append(node('div','✦','reader-star'),node('h2','Steaua ta este aici.'),node('p',isLive?`Mulțumim! Gândurile tale au devenit parte din universul ${config.birthdayName==='Antonia'?'Antoniei':config.birthdayName||'sărbătoritei'}.`:'Proba a reușit! Steaua ta este salvată în acest browser.'));const button=node('button','Vezi steaua mea ↗','primary');button.type='button';button.onclick=()=>{$('wizard').close();readStar(value);};success.append(button);$('wizard-content').append(success);$('back').hidden=true;$('next').hidden=true;toast(isLive?'O nouă lumină în univers. ✧':'Stea demonstrativă salvată local. ✧');
+   await flyIntoUniverse(value);toast(isLive?'Acum faci parte din universul Antoniei. ✧':'Stea demonstrativă salvată local. ✧');
  }catch(e){$('form-error').textContent=e.message==='local'?'Browserul nu a putut salva steaua. Cuvintele tale sunt încă în formular.':'Steaua nu a fost confirmată de server. Verifică internetul și încearcă din nou. Cuvintele tale au rămas în formular.';}
  finally{busy=false;$('next').disabled=false;$('back').disabled=false;$('next').textContent='Trimite steaua ✧';}
 });
@@ -145,16 +159,20 @@ $('share').onclick=async()=>{if(location.protocol==='file:'){toast('Copiază lin
 function download(content,type,filename){const a=node('a');const url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function exportReady(){if(!hasLoaded){toast('Așteaptă încărcarea mesajelor înainte de descărcare.');return false;}return true;}
 $('export').onclick=()=>{if(exportReady())download(JSON.stringify({version:1,event:config.eventId,birthdayName:config.birthdayName,exportedAt:new Date().toISOString(),demo:!isLive,questions:C.QUESTIONS,stars},null,2),'application/json','universul-14-mesaje.json');};
-$('poster').onclick=()=>{
- if(!exportReady())return;const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.setAttribute('xmlns',ns);const height=Math.max(1350,Math.ceil(stars.length/10)*150+550);svg.setAttribute('viewBox',`0 0 1800 ${height}`);
- const add=(tag,attrs,text)=>{const el=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,v);if(text!==undefined)el.textContent=text;svg.append(el);return el;};
- add('rect',{width:1800,height,fill:'#081621'});add('text',{x:900,y:105,'text-anchor':'middle',fill:'#82e1d1','font-family':'sans-serif','font-size':18,'letter-spacing':6},'O MICĂ INFINITATE');
- add('text',{x:900,y:205,'text-anchor':'middle',fill:'#f7d58b','font-family':'Georgia,serif','font-size':65},config.birthdayName?`${config.birthdayName} · universul la 14 ani`:'Universul tău la 14 ani');add('text',{x:900,y:260,'text-anchor':'middle',fill:'#b1c3c9','font-family':'sans-serif','font-size':22},[dateLabel(),!isLive?'POSTER DEMONSTRATIV':'14 ani · Fiecare om, o lumină.'].filter(Boolean).join(' · '));
- stars.forEach((s,i)=>{const p=C.position(s.id,i,stars.length),x=110+p.x*15.8,y=310+p.y*(height-500)/100;add('text',{x,y,fill:s.color,'text-anchor':'middle','font-size':45},'✦');add('text',{x,y:y+38,fill:'#e0e9e9','text-anchor':'middle','font-size':18,'font-family':'sans-serif'},s.name);});
- add('text',{x:900,y:height-55,'text-anchor':'middle',fill:'#b1c3c9','font-size':18,'font-family':'sans-serif'},'Oameni care îmi fac universul mai frumos.');download(new XMLSerializer().serializeToString(svg),'image/svg+xml','universul-14-poster.svg');
-};
-$('book').onclick=()=>{
- if(!exportReady())return;const w=window.open('','_blank');if(!w){toast('Permite deschiderea albumului într-o fereastră nouă.');return;}const doc=w.document;doc.title='Universul la 14 ani — album de mesaje';const style=doc.createElement('style');style.textContent='body{font:16px/1.7 Georgia,serif;color:#142d3a;max-width:800px;margin:40px auto;padding:20px}h1{font-size:42px}h2{color:#315e68}h3{font:13px Arial,sans-serif;margin-top:25px}p{white-space:pre-wrap;overflow-wrap:anywhere}article{break-before:page;padding-top:20px}button{padding:12px 20px;background:#142d3a;color:white;border:0;border-radius:6px;cursor:pointer}@media print{button{display:none}body{margin:0;padding:0}@page{margin:20mm}}';doc.head.append(style);const title=doc.createElement('h1');title.textContent=config.birthdayName?`${config.birthdayName} · universul la 14 ani`:'Universul tău la 14 ani';doc.body.append(title);const sub=doc.createElement('p');sub.textContent=`${dateLabel()} · ${stars.length} stele${!isLive?' · ALBUM DEMONSTRATIV':''}`;doc.body.append(sub);const btn=doc.createElement('button');btn.textContent='Tipărește / Salvează ca PDF';btn.onclick=()=>w.print();doc.body.append(btn);
- for(const s of stars){const article=doc.createElement('article'),h=doc.createElement('h2');h.textContent='✦ '+s.name;article.append(h);s.answers.forEach((a,i)=>{const q=doc.createElement('h3'),p=doc.createElement('p');q.textContent=C.QUESTIONS[i];p.textContent=a||'—';article.append(q,p);});doc.body.append(article);}
-};
+let pdfLibraryPromise=null;
+function loadPdfLibrary(){if(window.jspdf)return Promise.resolve(window.jspdf);if(!pdfLibraryPromise)pdfLibraryPromise=new Promise((resolve,reject)=>{const script=node('script');script.src='assets/vendor/jspdf.umd.min.js';script.onload=()=>resolve(window.jspdf);script.onerror=()=>{pdfLibraryPromise=null;script.remove();reject(new Error('pdf-library'));};document.head.append(script);});return pdfLibraryPromise;}
+async function fetchBytes(path){const r=await fetch(path,{cache:'force-cache'});if(!r.ok)throw new Error('pdf-asset');return new Uint8Array(await r.arrayBuffer());}
+function base64(bytes){let str='';for(let i=0;i<bytes.length;i+=8192)str+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(str);}
+async function downloadAlbum(){
+ const button=$('poster');if(button.disabled)return;button.disabled=true;button.textContent='Se pregătește albumul…';
+ try{
+ const snapshot=isLive?(await rpc('universe_list',{p_event:config.eventId})).filter(validRecord):[...stars];
+ if(isLive){stars=snapshot;hasLoaded=true;renderSky();}
+ const [library,font,photo]=await Promise.all([loadPdfLibrary(),fetchBytes('assets/fonts/DejaVuSans.ttf'),fetchBytes('assets/antonia-album.jpg')]);
+ const doc=window.AntoniaAlbum.buildAlbum({jsPDF:library.jsPDF,stars:snapshot,questions:C.QUESTIONS,position:C.position,fontBase64:base64(font),photoBytes:photo,name:config.birthdayName||'Antonia',demo:!isLive});
+ doc.save('Album-Antonia-14-ani.pdf');toast(`Album pregătit: ${snapshot.length} invitați, cu toate mesajele încărcate.`);
+ }catch(e){toast('Albumul nu a putut fi generat. Verifică internetul și încearcă din nou.');}
+ finally{button.disabled=false;button.textContent='↓ Descarcă albumul PDF';}
+}
+$('poster').onclick=downloadAlbum;$('book').onclick=downloadAlbum;
 })();

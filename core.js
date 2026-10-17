@@ -12,7 +12,7 @@
   function position(id, index, count) {
     const h=hash(String(id));
     const angle=index*2.3999632297+(h%20)/100;
-    const radius=Math.sqrt((index+0.7)/(count+0.7));
+    const radius=(0.45+0.55*Math.sqrt((index+0.7)/(count+0.7)));
     return {x:50+Math.cos(angle)*radius*40,y:49+Math.sin(angle)*radius*36};
   }
   function validate(d) {
