@@ -1,6 +1,6 @@
 // Personalizează aceste valori înainte de petrecere.
 window.UNIVERSE_CONFIG = {
-  birthdayName: '',
+  birthdayName: 'Antonia',
   age: 14,
   eventDate: '', // exemplu: 2026-11-07
   eventId: 'universul-14-schimba-acest-cod',
