@@ -131,7 +131,7 @@ function renderWizard(){
  $('wizard').scrollTop=0;
 }
 async function flyIntoUniverse(value){
- $('wizard').close();await refresh();if(!$('universe').open)openDialog($('universe'));
+ $('wizard').close();await refresh();if(!stars.some(s=>s.id===value.id)){stars.push(value);renderSky();}if(!$('universe').open)openDialog($('universe'));
  const index=stars.findIndex(s=>s.id===value.id);const p=C.position(value.id,Math.max(0,index),stars.length);
  const destination=Array.from($('stars').children).find(e=>e.dataset.starId===value.id);
  const flyer=node('div','✦','sky-launch');flyer.setAttribute('aria-hidden','true');flyer.style.setProperty('--landing-x',p.x+'%');flyer.style.setProperty('--landing-y',p.y+'%');flyer.style.setProperty('--launch-color',value.color);
