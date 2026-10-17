@@ -44,19 +44,82 @@ if(window.matchMedia('(hover: hover)').matches&&!reducedMotion.matches){hero.add
 $('footer-event').textContent=[config.birthdayName||'14 ANI',dateLabel()||'O MICĂ INFINITATE'].join(' · ');
 $('mode-note').textContent=qaMode?'UNIVERS DE TEST · Contribuțiile de aici nu apar în universul petrecerii.':isLive?'Un singur univers, toate mesajele prietenilor. Sincronizare automată.':'MOD DEMONSTRATIV · Mesajele de probă rămân doar în acest browser.';
 for(let i=0;i<95;i++){const d=node('i');d.style.left=((i*73.37)%100)+'%';d.style.top=((i*47.73)%100)+'%';d.style.animationDelay=-(i%5)+'s';d.style.opacity=.12+(i%5)/10;$('dust').append(d);}
+// Depth uses a damped animation frame loop, active only while the sky moves.
+const sky=$('sky');
+let depthX=0,depthY=0,targetX=0,targetY=0,depthFrame=0,skyDrag=null,beamSequence=0;
+const clampDepth=v=>Math.max(-24,Math.min(24,v));
+function paintDepth(){
+ sky.style.setProperty('--depth-x',depthX+'px');sky.style.setProperty('--depth-y',depthY+'px');
+ const w=sky.clientWidth||1,h=sky.clientHeight||1,points=[];
+ sky.querySelectorAll('.star').forEach(b=>{
+  const d=Number(b.dataset.depth),x=Number(b.dataset.x)+depthX*d/w*100,y=Number(b.dataset.y)+depthY*d/h*100;
+  b.style.left=x+'%';b.style.top=y+'%';points.push({x,y});
+ });
+ $('connections').querySelectorAll('line').forEach((line,i)=>{const a=points[i],b=points[i+1];if(a&&b)for(const [k,v] of Object.entries({x1:a.x,y1:a.y,x2:b.x,y2:b.y}))line.setAttribute(k,v);});
+}
+function animateDepth(){
+ depthX+=(targetX-depthX)*.14;depthY+=(targetY-depthY)*.14;
+ const settled=Math.abs(targetX-depthX)+Math.abs(targetY-depthY)<.08;
+ if(settled){depthX=targetX;depthY=targetY;}paintDepth();depthFrame=settled?0:requestAnimationFrame(animateDepth);
+}
+function moveDepth(x,y){if(reducedMotion.matches)return;targetX=clampDepth(x);targetY=clampDepth(y);if(!depthFrame)depthFrame=requestAnimationFrame(animateDepth);}
+sky.addEventListener('pointerdown',e=>{if(e.target.closest('button')||reducedMotion.matches)return;skyDrag={id:e.pointerId,x:e.clientX,y:e.clientY};sky.setPointerCapture(e.pointerId);sky.classList.add('is-dragging');});
+sky.addEventListener('pointermove',e=>{
+ if(skyDrag&&e.pointerId===skyDrag.id)moveDepth((e.clientX-skyDrag.x)*.22,(e.clientY-skyDrag.y)*.22);
+ else if(e.pointerType==='mouse'&&!skyDrag){const r=sky.getBoundingClientRect();moveDepth(((e.clientX-r.left)/r.width-.5)*32,((e.clientY-r.top)/r.height-.5)*32);}
+});
+function finishDepth(){skyDrag=null;sky.classList.remove('is-dragging');moveDepth(0,0);}
+for(const event of ['pointerup','pointercancel','lostpointercapture','pointerleave'])sky.addEventListener(event,finishDepth);
+sky.addEventListener('keydown',e=>{if(e.target!==sky)return;const shifts={ArrowLeft:[-8,0],ArrowRight:[8,0],ArrowUp:[0,-8],ArrowDown:[0,8]};if(shifts[e.key]){e.preventDefault();moveDepth(targetX+shifts[e.key][0],targetY+shifts[e.key][1]);}if(e.key==='Home'){e.preventDefault();moveDepth(0,0);}});
+sky.addEventListener('blur',()=>{if(!skyDrag)moveDepth(0,0);});
+$('universe').addEventListener('close',()=>{beamSequence++;sky.querySelectorAll('.friendship-beam').forEach(e=>e.remove());finishDepth();});
+window.addEventListener('resize',paintDepth);
+reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches){cancelAnimationFrame(depthFrame);depthFrame=0;depthX=depthY=targetX=targetY=0;paintDepth();}});
+async function connectStar(s){
+ const sequence=++beamSequence;
+ sky.querySelectorAll('.friendship-beam').forEach(e=>e.remove());
+ const source=[...sky.querySelectorAll('.star')].find(b=>b.dataset.starId===s.id);
+ if(!source||!$('universe').open||reducedMotion.matches){readStar(s);return;}
+ skyDrag=null;sky.classList.remove('is-dragging');cancelAnimationFrame(depthFrame);depthFrame=0;targetX=depthX;targetY=depthY;
+ const r=sky.getBoundingClientRect(),a=source.querySelector('.star-mark').getBoundingClientRect(),b=sky.querySelector('.universe-portrait img').getBoundingClientRect();
+ const beam=document.createElementNS('http://www.w3.org/2000/svg','svg');beam.classList.add('friendship-beam');beam.setAttribute('viewBox',`0 0 ${r.width} ${r.height}`);beam.setAttribute('aria-hidden','true');beam.style.color=s.color;
+ const line=document.createElementNS(beam.namespaceURI,'path');line.setAttribute('d',`M ${a.left+a.width/2-r.left} ${a.top+a.height/2-r.top} L ${b.left+b.width/2-r.left} ${b.top+b.height/2-r.top}`);line.setAttribute('pathLength','1');beam.append(line);sky.append(beam);
+ source.classList.add('star-connected');sky.querySelector('.universe-portrait').classList.add('portrait-connected');
+ await new Promise(resolve=>setTimeout(resolve,650));
+ beam.remove();source.classList.remove('star-connected');sky.querySelector('.universe-portrait').classList.remove('portrait-connected');
+ if(sequence===beamSequence&&$('universe').open)readStar(s);
+}
+let surpriseTimer=0;
+function birthdaySurprise(){
+ const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;
+ document.querySelectorAll('.birthday-surprise').forEach(e=>e.remove());
+ const overlay=node('div',undefined,'birthday-surprise');overlay.setAttribute('role','status');overlay.append(node('span','14','surprise-age'),node('p','La mulți ani, Antonia!'),node('small','Universul acesta strălucește pentru tine.'));
+ if(!reducedMotion.matches)for(let i=0;i<32;i++){const spark=node('i',i%3?'✦':'✧');spark.setAttribute('aria-hidden','true');spark.style.setProperty('--fall-x',((i*37)%100)+'%');spark.style.setProperty('--fall-delay',(i%8)*.12+'s');spark.style.setProperty('--fall-color',C.COLORS[i%C.COLORS.length]);overlay.append(spark);}
+ host.append(overlay);clearTimeout(surpriseTimer);surpriseTimer=setTimeout(()=>overlay.remove(),4600);
+}
+document.querySelectorAll('.photo-surprise').forEach(photo=>{
+ let timer=0,origin=null,triggered=false;
+ function cancelHold(){clearTimeout(timer);timer=0;photo.classList.remove('is-holding');origin=null;}
+ photo.addEventListener('pointerdown',e=>{if(e.button!==0)return;cancelHold();triggered=false;origin={x:e.clientX,y:e.clientY};photo.classList.add('is-holding');timer=setTimeout(()=>{triggered=true;cancelHold();birthdaySurprise();},850);});
+ photo.addEventListener('pointermove',e=>{if(origin&&Math.hypot(e.clientX-origin.x,e.clientY-origin.y)>12)cancelHold();});
+ for(const event of ['pointerup','pointercancel','pointerleave','blur'])photo.addEventListener(event,cancelHold);
+ photo.addEventListener('contextmenu',e=>{e.preventDefault();});
+ photo.addEventListener('click',e=>{e.preventDefault();if(e.detail===0){cancelHold();birthdaySurprise();}else if(!triggered)toast('Ține fotografia apăsată o clipă… ✧');});
+});
 function renderSky(){
   $('stars').replaceChildren();$('connections').replaceChildren();$('star-count').textContent=stars.length;$('star-unit').textContent=stars.length===1?'stea în univers':'stele în univers';$('empty').hidden=!!stars.length;$('random').disabled=!stars.length;
   stars.forEach((s,i)=>{
-    const p=C.position(s.id,i,stars.length),b=node('button',undefined,'star');b.type='button';b.style.left=p.x+'%';b.style.top=p.y+'%';b.style.setProperty('--star',s.color);b.style.setProperty('--pulse-delay',(-i*.7)+'s');b.style.setProperty('--arrival-delay',(Math.min(i,20)*.05)+'s');b.dataset.starId=s.id;b.setAttribute('aria-label',`Citește steaua: ${s.name}`);b.append(node('span','✦','star-mark'),node('span',s.name,'star-name'));b.onclick=()=>readStar(s);$('stars').append(b);
+    const p=C.position(s.id,i,stars.length),b=node('button',undefined,'star');b.type='button';b.style.left=p.x+'%';b.style.top=p.y+'%';b.style.setProperty('--star',s.color);b.style.setProperty('--pulse-delay',(-i*.7)+'s');b.style.setProperty('--arrival-delay',(Math.min(i,20)*.05)+'s');b.dataset.starId=s.id;b.dataset.x=p.x;b.dataset.y=p.y;b.dataset.depth=.35+(i%4)*.25;b.style.setProperty('--star-depth',.9+(i%4)*.07);b.setAttribute('aria-label',`Citește steaua: ${s.name}`);b.append(node('span','✦','star-mark'),node('span',s.name,'star-name'));b.onclick=()=>connectStar(s);$('stars').append(b);
     if(i>0){const previous=C.position(stars[i-1].id,i-1,stars.length);const l=document.createElementNS('http://www.w3.org/2000/svg','line');for(const [k,v] of Object.entries({x1:previous.x,y1:previous.y,x2:p.x,y2:p.y}))l.setAttribute(k,v);$('connections').append(l);}
   });
+  paintDepth();
 }
 function readStar(s){
   const out=$('reader-content');out.replaceChildren();const icon=node('div','✦','reader-star');icon.style.color=s.color;const h=node('h2',s.name,'reader-heading');h.id='reader-title';out.append(icon,h);
   s.answers.forEach((a,i)=>{const part=node('section',undefined,'answer');part.append(node('h4',C.QUESTIONS[i]),node('p',a||'Un gând rămas printre stele.'));out.append(part);});
   openDialog($('reader'));celebrate(s.color);
 }
-function renderDirectory(){const query=$('search').value.trim().toLocaleLowerCase('ro');const list=$('guest-list');list.replaceChildren();const filtered=stars.filter(s=>s.name.toLocaleLowerCase('ro').includes(query));for(const s of filtered){const b=node('button',undefined,'guest-item');const mark=node('span','✦');mark.style.color=s.color;b.append(mark,node('strong',s.name),node('span','↗'));b.onclick=()=>{$('guests').close();readStar(s);};list.append(b);}if(!filtered.length)list.append(node('p','Nicio stea găsită.','helper'));}
+function renderDirectory(){const query=$('search').value.trim().toLocaleLowerCase('ro');const list=$('guest-list');list.replaceChildren();const filtered=stars.filter(s=>s.name.toLocaleLowerCase('ro').includes(query));for(const s of filtered){const b=node('button',undefined,'guest-item');const mark=node('span','✦');mark.style.color=s.color;b.append(mark,node('strong',s.name),node('span','↗'));b.onclick=()=>{$('guests').close();connectStar(s);};list.append(b);}if(!filtered.length)list.append(node('p','Nicio stea găsită.','helper'));}
 async function rpc(name,payload){
  if(!config.apiUrl)throw new Error('configuration');
  const reading=name==='universe_list';const endpoint=config.apiUrl+'/api/stars';
@@ -153,7 +216,7 @@ $('star-form').addEventListener('submit',async e=>{
 });
 $('start').onclick=()=>{$('next').hidden=false;start();};$('explore').onclick=()=>{openDialog($('universe'));refresh();};$('back').onclick=()=>{capture();step=Math.max(0,step-1);renderWizard();};
 for(const d of document.querySelectorAll('dialog')){d.querySelector('[data-close]').onclick=()=>{if(!busy)d.close();};d.addEventListener('cancel',e=>{if(busy)e.preventDefault();});}
-$('random').onclick=()=>{if(stars.length)readStar(stars[Math.floor(Math.random()*stars.length)]);};$('directory').onclick=()=>{renderDirectory();openDialog($('guests'));};$('search').oninput=renderDirectory;
+$('random').onclick=()=>{if(stars.length)connectStar(stars[Math.floor(Math.random()*stars.length)]);};$('directory').onclick=()=>{renderDirectory();openDialog($('guests'));};$('search').oninput=renderDirectory;
 $('share').onclick=async()=>{if(location.protocol==='file:'){toast('Copiază linkul după publicarea pe GitHub Pages.');return;}try{await navigator.clipboard.writeText(location.href.split('#')[0]);toast('Link copiat. Trimite-l prietenilor sau folosește-l pentru QR.');}catch{toast('Copiază adresa site-ului din bara browserului.');}};
 let pdfLibraryPromise=null;
 function loadPdfLibrary(){if(window.jspdf)return Promise.resolve(window.jspdf);if(!pdfLibraryPromise)pdfLibraryPromise=new Promise((resolve,reject)=>{const script=node('script');script.src='assets/vendor/jspdf.umd.min.js';script.onload=()=>resolve(window.jspdf);script.onerror=()=>{pdfLibraryPromise=null;script.remove();reject(new Error('pdf-library'));};document.head.append(script);});return pdfLibraryPromise;}
