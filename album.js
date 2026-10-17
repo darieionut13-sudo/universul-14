@@ -9,7 +9,7 @@ function buildAlbum({jsPDF,stars,questions,position,fontBase64,photoBytes,name='
  function star(x,y,r,color){const points=[];for(let i=0;i<8;i++){const a=-Math.PI/2+i*Math.PI/4,rad=i%2?r*.28:r;points.push([x+Math.cos(a)*rad,y+Math.sin(a)*rad]);}const segments=points.slice(1).map((p,i)=>[p[0]-points[i][0],p[1]-points[i][1]]);d.setFillColor(color);d.lines(segments,points[0][0],points[0][1],[1,1],'F',true);}
  function portrait(x,y,r){d.saveGraphicsState();d.circle(x,y,r,null);d.clip();d.discardPath();d.addImage(photoBytes,'JPEG',x-r,y-r,2*r,2*r);d.restoreGraphicsState();d.setDrawColor(gold);d.setLineWidth(.45);d.circle(x,y,r+.8);}
  // Cover: portrait and the same constellation as the interactive universe.
- d.setFillColor(navy);d.rect(0,0,210,297,'F');text('O MICĂ INFINITATE',105,25,9,gold,{align:'center'});text(name,105,48,30,'#edf1ef',{align:'center'});text('14 ani de magie',105,61,13,gold,{align:'center'});text(`${stars.length} stele. Tot atâtea povești de păstrat.`,105,77,9,'#a6bbc7',{align:'center'});
+ d.setFillColor(navy);d.rect(0,0,210,297,'F');text('O MICĂ INFINITATE',105,25,9,gold,{align:'center'});text(name,105,48,30,'#edf1ef',{align:'center'});text('14 ani de magie',105,61,13,gold,{align:'center'});text(stars.length===1?'O stea. O poveste de păstrat.':`${stars.length} stele. Tot atâtea povești de păstrat.`,105,77,9,'#a6bbc7',{align:'center'});
  d.setDrawColor('#25434f');d.setLineWidth(.2);d.ellipse(105,172,78,55);d.ellipse(105,172,62,67);
  const positions=stars.map((s,i)=>{const p=position(s.id,i,stars.length);return {x:20+p.x*1.7,y:96+p.y*1.53};});
  d.setDrawColor('#2a4852');positions.forEach((p,i)=>{if(i)d.line(positions[i-1].x,positions[i-1].y,p.x,p.y);});portrait(105,171,18);

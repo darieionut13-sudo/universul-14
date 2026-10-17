@@ -45,7 +45,7 @@ $('footer-event').textContent=[config.birthdayName||'14 ANI',dateLabel()||'O MIC
 $('mode-note').textContent=qaMode?'UNIVERS DE TEST · Contribuțiile de aici nu apar în universul petrecerii.':isLive?'Un singur univers, toate mesajele prietenilor. Sincronizare automată.':'MOD DEMONSTRATIV · Mesajele de probă rămân doar în acest browser.';
 for(let i=0;i<95;i++){const d=node('i');d.style.left=((i*73.37)%100)+'%';d.style.top=((i*47.73)%100)+'%';d.style.animationDelay=-(i%5)+'s';d.style.opacity=.12+(i%5)/10;$('dust').append(d);}
 function renderSky(){
-  $('stars').replaceChildren();$('connections').replaceChildren();$('star-count').textContent=stars.length;$('empty').hidden=!!stars.length;$('random').disabled=!stars.length;
+  $('stars').replaceChildren();$('connections').replaceChildren();$('star-count').textContent=stars.length;$('star-unit').textContent=stars.length===1?'stea în univers':'stele în univers';$('empty').hidden=!!stars.length;$('random').disabled=!stars.length;
   stars.forEach((s,i)=>{
     const p=C.position(s.id,i,stars.length),b=node('button',undefined,'star');b.type='button';b.style.left=p.x+'%';b.style.top=p.y+'%';b.style.setProperty('--star',s.color);b.style.setProperty('--pulse-delay',(-i*.7)+'s');b.style.setProperty('--arrival-delay',(Math.min(i,20)*.05)+'s');b.dataset.starId=s.id;b.setAttribute('aria-label',`Citește steaua: ${s.name}`);b.append(node('span','✦','star-mark'),node('span',s.name,'star-name'));b.onclick=()=>readStar(s);$('stars').append(b);
     if(i>0){const previous=C.position(stars[i-1].id,i-1,stars.length);const l=document.createElementNS('http://www.w3.org/2000/svg','line');for(const [k,v] of Object.entries({x1:previous.x,y1:previous.y,x2:p.x,y2:p.y}))l.setAttribute(k,v);$('connections').append(l);}
@@ -169,7 +169,7 @@ async function downloadAlbum(){
  const snapshot=isLive?(await rpc('universe_list',{p_event:config.eventId})).filter(validRecord):[...stars];
  if(isLive){stars=snapshot;hasLoaded=true;renderSky();}
  const [library,font,photo]=await Promise.all([loadPdfLibrary(),fetchBytes('assets/fonts/DejaVuSans.ttf'),fetchBytes('assets/antonia-album.jpg')]);
- const doc=window.AntoniaAlbum.buildAlbum({jsPDF:library.jsPDF,stars:snapshot,questions:C.QUESTIONS,position:C.position,fontBase64:base64(font),photoBytes:photo,name:config.birthdayName||'Antonia',demo:!isLive});
+ const doc=window.AntoniaAlbum.buildAlbum({jsPDF:library.jsPDF,stars:snapshot,questions:C.QUESTIONS,position:C.position,fontBase64:base64(font),photoBytes:photo,name:config.birthdayName||'Antonia',demo:!isLive||qaMode});
  doc.save('Album-Antonia-14-ani.pdf');toast(`Album pregătit: ${snapshot.length} invitați, cu toate mesajele încărcate.`);
  }catch(e){toast('Albumul nu a putut fi generat. Verifică internetul și încearcă din nou.');}
  finally{button.disabled=false;button.textContent='↓ Descarcă albumul PDF';}
