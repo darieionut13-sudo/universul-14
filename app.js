@@ -31,7 +31,7 @@ function celebrate(color=C.COLORS[0]){
  if(reducedMotion.matches)return;
  const shower=node('div',undefined,'star-shower');shower.setAttribute('aria-hidden','true');
  for(let i=0;i<24;i++){const p=node('span',i%3?'✦':'✧');p.style.setProperty('--flight',`${i*15}deg`);p.style.setProperty('--reach',`${110+(i%5)*40}px`);p.style.setProperty('--spark-color',i%2?color:C.COLORS[i%C.COLORS.length]);p.style.animationDelay=(i%4)*.03+'s';shower.append(p);}
- document.body.append(shower);setTimeout(()=>shower.remove(),1600);
+ (document.querySelector('dialog[open]')||document.body).append(shower);setTimeout(()=>shower.remove(),1600);
 }
 const dock=$('mobile-start');dock.textContent=`✧ Lasă o stea pentru ${config.birthdayName||'sărbătorită'} ↗`;
 dock.onclick=()=>{$('start').click();};
@@ -48,10 +48,9 @@ function renderSky(){
   });
 }
 function readStar(s){
-  celebrate(s.color);
   const out=$('reader-content');out.replaceChildren();const icon=node('div','✦','reader-star');icon.style.color=s.color;const h=node('h2',s.name,'reader-heading');h.id='reader-title';out.append(icon,h);
   s.answers.forEach((a,i)=>{const part=node('section',undefined,'answer');part.append(node('h4',C.QUESTIONS[i]),node('p',a||'Un gând rămas printre stele.'));out.append(part);});
-  openDialog($('reader'));
+  openDialog($('reader'));celebrate(s.color);
 }
 function renderDirectory(){const query=$('search').value.trim().toLocaleLowerCase('ro');const list=$('guest-list');list.replaceChildren();const filtered=stars.filter(s=>s.name.toLocaleLowerCase('ro').includes(query));for(const s of filtered){const b=node('button',undefined,'guest-item');const mark=node('span','✦');mark.style.color=s.color;b.append(mark,node('strong',s.name),node('span','↗'));b.onclick=()=>{$('guests').close();readStar(s);};list.append(b);}if(!filtered.length)list.append(node('p','Nicio stea găsită.','helper'));}
 async function rpc(name,payload){
