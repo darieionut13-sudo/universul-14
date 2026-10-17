@@ -2,7 +2,7 @@
 
 Site: https://darieionut13-sudo.github.io/universul-14/
 
-Pagina de început rămâne într-un singur ecran: fotografia Antoniei și butoanele „Lasă o stea” / „Explorează universul”. Întrebările se deschid automat în cartonașele 3D. După confirmarea salvării pe server, steaua invitatului zboară în constelație.
+Pagina de început rămâne într-un singur ecran: fotografia Antoniei și butoanele „Lasă o stea” / „Explorează universul”. Întrebările se deschid manual în cartonașele 3D. Steaua rotativă apare doar la alegerea numelui și culorii. După confirmarea salvării pe server, steaua invitatului zboară în constelație.
 
 ## Mesaje comune
 
@@ -16,7 +16,7 @@ Numele și răspunsurile sunt vizibile și descărcabile de persoanele care au l
 
 „Explorează universul” → „Descarcă albumul PDF” generează direct un fișier PDF. Mai întâi sunt citite mesajele actuale de pe server. Prima pagină conține fotografia și constelația, apoi fiecare invitat începe o pagină nouă cu cele cinci răspunsuri. Textul lung continuă automat pe pagini suplimentare. Fontul include diacritice românești. Generarea are loc pe dispozitiv; nu trimite mesajele către un serviciu PDF extern.
 
-Fișierul JSON rămâne disponibil ca copie separată a datelor. Păstrează albumul și exportul după eveniment. Nu încărca mesajele exportate în repository-ul public.
+Păstrează albumul PDF după eveniment. Nu încărca mesajele invitaților în repository-ul public.
 
 ## Testare
 
