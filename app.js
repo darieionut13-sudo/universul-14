@@ -37,6 +37,8 @@ const dock=$('mobile-start');dock.textContent=`✧ Lasă o stea pentru ${config.
 dock.onclick=()=>{$('start').click();};
 if('IntersectionObserver' in window){const watch=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){e.target.classList.add('in-view');watch.unobserve(e.target);}},{threshold:.1});document.querySelectorAll('.section-top,.keepsake').forEach(e=>{e.classList.add('reveal');watch.observe(e);});}
 
+const hero=document.querySelector('.intro');
+if(window.matchMedia('(hover: hover)').matches&&!reducedMotion.matches){hero.addEventListener('pointermove',e=>{const r=hero.getBoundingClientRect();hero.style.setProperty('--hero-x',((e.clientX-r.left)/r.width-.5)*16+'deg');hero.style.setProperty('--hero-y',-((e.clientY-r.top)/r.height-.5)*12+'deg');});hero.addEventListener('pointerleave',()=>{hero.style.setProperty('--hero-x','0deg');hero.style.setProperty('--hero-y','0deg');});}
 $('footer-event').textContent=[config.birthdayName||'14 ANI',dateLabel()||'O MICĂ INFINITATE'].join(' · ');
 $('mode-note').textContent=isLive?'Mesajele trimise de invitați se adună în același cer. Numele și răspunsurile pot fi citite de cei care au linkul.':'MOD DEMONSTRATIV · Stelele inițiale sunt exemple. Ce adaugi aici rămâne numai în acest browser; nu se trimite sărbătoritei.';
 for(let i=0;i<95;i++){const d=node('i');d.style.left=((i*73.37)%100)+'%';d.style.top=((i*47.73)%100)+'%';d.style.animationDelay=-(i%5)+'s';d.style.opacity=.12+(i%5)/10;$('dust').append(d);}
@@ -71,15 +73,60 @@ function start(){
  const saved=storageRead(key+':draft',null);draft=saved&&typeof saved.id==='string'&&typeof saved.name==='string'&&Array.isArray(saved.answers)&&saved.answers.length===5&&saved.answers.every(a=>typeof a==='string')?saved:newDraft();if(!C.COLORS.includes(draft.color))draft.color=C.COLORS[0];step=0;renderWizard();openDialog($('wizard'));
 }
 function capture(){if(step===0){draft.name=$('name-input').value;}else if(step<=5){draft.answers[step-1]=$('answer-input').value;}saveDraft();}
+const CHAPTERS = [
+ {title:'Un vis pentru tine',icon:'✧',theme:'dream',caption:'O dorință de pus printre stele.',starters:['Îți doresc să ai curajul să…','Mi-ar plăcea să te văd…','Sper să ajungi într-o zi…']},
+ {title:'Ce te face specială',icon:'♡',theme:'heart',caption:'Unele lucruri merită spuse cu voce tare.',starters:['Îmi place la tine felul în care…','Tu faci orice zi mai frumoasă când…','Admir la tine…']},
+ {title:'Filmul prieteniei',icon:'▶',theme:'cinema',caption:'Prieteniile bune merită propriul film.',starters:['Titlul ar fi „…”, pentru că…','O comedie numită „…”','O aventură cu titlul „…”']},
+ {title:'Următoarea aventură',icon:'↗',theme:'adventure',caption:'Unde ne duce următorul „hai să…”?',starters:['Hai să mergem împreună la…','Aș vrea să încercăm…','O zi perfectă cu noi ar începe cu…']},
+ {title:'Un mesaj pentru 18 ani',icon:'✉',theme:'future',caption:'Cuvintele de azi. Un zâmbet de peste ani.',starters:['Dragă Antonia de 18 ani,…','Sper că încă…','Când citești asta, să-ți amintești că…']}
+];
+let cardOpen=false;
+function mountCrystal(out){
+ const stage=node('div',undefined,'crystal-stage');stage.style.setProperty('--jewel-color',draft.color);
+ const halo=node('div',undefined,'crystal-halo');halo.setAttribute('aria-hidden','true');
+ const shell=node('div',undefined,'crystal-shell');shell.tabIndex=0;shell.setAttribute('role','img');shell.setAttribute('aria-label','Steaua ta 3D. Glisează pentru a o roti.');
+ const jewel=node('div',undefined,'crystal-jewel');for(let k=0;k<4;k++){const blade=node('span',undefined,'crystal-blade');blade.style.setProperty('--blade',k);jewel.append(blade);}shell.append(jewel);
+ const ring=node('div',undefined,'memory-orbit');ring.setAttribute('aria-hidden','true');for(let i=0;i<5;i++){const light=node('i');light.style.setProperty('--satellite',i);light.dataset.answer=String(i);ring.append(light);}
+ stage.append(halo,shell,ring);const caption=node('p',undefined,'crystal-caption');caption.append(node('strong',draft.name||'Steaua ta prinde viață'),node('span','','crystal-energy'));stage.append(caption);
+ const rotate=node('button','⟳ Rotește steaua','crystal-control');rotate.type='button';rotate.setAttribute('aria-label','Rotește steaua 3D');stage.append(rotate);
+ let angle=0,dragging=false,previousX=0;const turn=()=>{jewel.style.setProperty('--user-turn',angle+'deg');};
+ rotate.onclick=()=>{angle+=75;turn();stage.classList.remove('crystal-pop');void stage.offsetWidth;stage.classList.add('crystal-pop');};
+ shell.onpointerdown=e=>{if(e.button!==0)return;dragging=true;previousX=e.clientX;shell.setPointerCapture(e.pointerId);};
+ shell.onpointermove=e=>{if(!dragging)return;angle+=(e.clientX-previousX)*1.6;previousX=e.clientX;turn();};shell.onpointerup=()=>{dragging=false;};shell.onpointercancel=()=>{dragging=false;};
+ shell.onkeydown=e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();angle+=e.key==='ArrowRight'?30:-30;turn();}};
+ out.append(stage);updateCrystal(stage);return stage;
+}
+function updateCrystal(stage=$('wizard-content').querySelector('.crystal-stage')){
+ if(!stage)return;const count=draft.answers.filter(a=>a.trim()).length;
+ stage.style.setProperty('--charge',String(.25+count*.15));stage.style.setProperty('--jewel-color',draft.color);
+ stage.querySelector('.crystal-energy').textContent=`${count} din 5 gânduri aprinse`;
+ stage.querySelectorAll('[data-answer]').forEach(e=>e.classList.toggle('lit',!!draft.answers[Number(e.dataset.answer)].trim()));
+}
+function jumpTo(target){if(busy)return;capture();if(!draft.name.trim()){$('form-error').textContent='Scrie mai întâi numele tău.';return;}step=target;renderWizard();}
 function renderWizard(){
- const out=$('wizard-content');out.replaceChildren();$('form-error').textContent='';$('progress').replaceChildren();for(let i=0;i<7;i++)$('progress').append(node('span',undefined,i<=step?'done':''));$('back').hidden=step===0;$('next').textContent=step===6?'Trimite steaua ✧':'Continuă →';
- if(step===0){const title=node('h2','Mai întâi, cine luminează cerul?');title.id='wizard-title';out.append(title,node('p','Cum vrei să apară numele tău sub stea?','helper'));const l=node('label','Numele tău');l.htmlFor='name-input';const input=node('input');input.id='name-input';input.maxLength=40;input.autocomplete='given-name';input.placeholder='Prenume sau poreclă';input.value=draft.name;input.required=true;input.oninput=()=>{draft.name=input.value;saveDraft();};out.append(l,input,node('label','Alege culoarea stelei tale'));const colors=node('div',undefined,'colors');C.COLORS.forEach((color,i)=>{const b=node('button');b.type='button';b.className='color';b.style.setProperty('--swatch',color);b.setAttribute('aria-label',['Auriu','Turcoaz','Liliachiu','Roz','Albastru'][i]);b.setAttribute('aria-pressed',color===draft.color);b.onclick=()=>{draft.color=color;saveDraft();colors.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));};colors.append(b);});out.append(colors);}
- else if(step<=5){const i=step-1;out.append(node('div',`ÎNTREBAREA ${step} DIN 5`,'step-caption'));const title=node('h2',C.QUESTIONS[i]);title.id='wizard-title';out.append(title,node('p',hints[i],'helper'));const label=node('label','Gândul tău');label.htmlFor='answer-input';const input=node('textarea');input.id='answer-input';input.maxLength=500;input.placeholder='Scrie cu cuvintele tale…';input.value=draft.answers[i];const count=node('div',`${input.value.length}/500`,'char-count');input.oninput=()=>{draft.answers[i]=input.value;count.textContent=`${input.value.length}/500`;saveDraft();};const skip=node('button','Sar peste această întrebare →','quiet skip');skip.type='button';skip.onclick=()=>{draft.answers[i]='';saveDraft();step++;renderWizard();};out.append(label,input,count,skip);}
- else {const title=node('h2','Gata să-ți aprinzi steaua?');title.id='wizard-title';out.append(title,node('p',draft.name,'review-name'));draft.answers.forEach((a,i)=>{const section=node('div',undefined,'answer');section.append(node('h4',C.QUESTIONS[i]),node('p',a||'Întrebare sărită'));out.append(section);});out.append(node('div',isLive?'Numele și răspunsurile tale vor putea fi citite de sărbătorită și de persoanele care au linkul. Apăsând „Trimite steaua”, alegi să le adaugi în univers.':'Aceasta este o probă: steaua va fi păstrată numai în acest browser. Niciun mesaj nu este trimis sărbătoritei.','consent'));}
+ const out=$('wizard-content');out.replaceChildren();out.dataset.step=String(step);$('form-error').textContent='';$('progress').replaceChildren();for(let i=0;i<7;i++)$('progress').append(node('span',undefined,i<=step?'done':''));$('back').hidden=step===0;$('next').textContent=step===6?'Trimite steaua ✧':'Continuă →';cardOpen=step===0||step===6;
+ out.classList.remove('step-arrive');void out.offsetWidth;out.classList.add('step-arrive');
+ if(step>0){const journey=node('nav',undefined,'question-journey');journey.setAttribute('aria-label','Cele cinci întrebări');CHAPTERS.forEach((chapter,i)=>{const b=node('button',chapter.icon);b.type='button';b.className='journey-stop'+(step===i+1?' current':'')+(draft.answers[i].trim()?' answered':'');b.setAttribute('aria-label',`Întrebarea ${i+1}: ${chapter.title}`);if(step===i+1)b.setAttribute('aria-current','step');b.onclick=()=>jumpTo(i+1);journey.append(b);});out.append(journey);}
+ const stage=mountCrystal(out);
+ if(step===0){const title=node('h2','Mai întâi, cine luminează cerul?');title.id='wizard-title';out.append(title,node('p','Alege o culoare, rotește steaua și pornește în cele cinci mici aventuri.','helper'));const l=node('label','Numele tău');l.htmlFor='name-input';const input=node('input');input.id='name-input';input.maxLength=40;input.autocomplete='given-name';input.placeholder='Prenume sau poreclă';input.value=draft.name;input.required=true;input.oninput=()=>{draft.name=input.value;stage.querySelector('.crystal-caption strong').textContent=input.value.trim()||'Steaua ta prinde viață';saveDraft();};out.append(l,input,node('label','Alege culoarea stelei tale'));const colors=node('div',undefined,'colors');C.COLORS.forEach((color,i)=>{const b=node('button');b.type='button';b.className='color';b.style.setProperty('--swatch',color);b.setAttribute('aria-label',['Auriu','Turcoaz','Liliachiu','Roz','Albastru'][i]);b.setAttribute('aria-pressed',color===draft.color);b.onclick=()=>{draft.color=color;saveDraft();updateCrystal(stage);colors.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));};colors.append(b);});out.append(colors);}
+ else if(step<=5){
+  const i=step-1,chapter=CHAPTERS[i];out.append(node('div',`CAPITOLUL ${step} DIN 5 · ${chapter.title.toLocaleUpperCase('ro')}`,'step-caption'));
+  const card=node('section',undefined,'question-card theme-'+chapter.theme);const rotor=node('div',undefined,'card-rotor');const front=node('div',undefined,'card-face card-front'),back=node('div',undefined,'card-face card-back');
+  const token=node('div',undefined,'question-token');token.append(node('span',chapter.icon,'token-symbol'),node('span','','token-edge'));front.append(token,node('div','PENTRU ANTONIA','card-dedication'),node('h3',chapter.title),node('p',chapter.caption));
+  const reveal=node('button','Deschide întrebarea ✧','open-question');reveal.type='button';front.append(reveal);
+  const title=node('h2',C.QUESTIONS[i]);title.id='wizard-title';back.append(title,node('p',hints[i],'helper'));const label=node('label','Gândul tău');label.htmlFor='answer-input';const input=node('textarea');input.id='answer-input';input.maxLength=500;input.placeholder='Scrie cu cuvintele tale…';input.value=draft.answers[i];const count=node('div',`${input.value.length}/500`,'char-count');
+  input.oninput=()=>{draft.answers[i]=input.value;count.textContent=`${input.value.length}/500`;saveDraft();updateCrystal(stage);const stop=out.querySelectorAll('.journey-stop')[i];if(stop)stop.classList.toggle('answered',!!input.value.trim());};
+  const inspire=node('button','✧ O scânteie de inspirație','inspire-button');inspire.type='button';inspire.setAttribute('aria-expanded','false');const ideas=node('div',undefined,'inspiration-chips');ideas.hidden=true;chapter.starters.forEach(text=>{const b=node('button',text);b.type='button';b.onclick=()=>{const current=input.value;const extra=(current.trim()?'\n':'')+text;if(current.length+extra.length>500){toast('Păstrează răspunsul în limita de 500 de caractere.');return;}input.value=current+extra;input.dispatchEvent(new Event('input'));input.focus({preventScroll:true});};ideas.append(b);});inspire.onclick=()=>{ideas.hidden=!ideas.hidden;inspire.setAttribute('aria-expanded',String(!ideas.hidden));};
+  const skip=node('button','Las acest gând pentru altădată →','quiet skip');skip.type='button';skip.onclick=()=>{draft.answers[i]='';saveDraft();step++;renderWizard();};back.append(label,input,count,inspire,ideas,skip);back.setAttribute('inert','');
+  function unfold(){if(cardOpen)return;cardOpen=true;card.classList.add('is-open');front.setAttribute('inert','');front.setAttribute('aria-hidden','true');back.removeAttribute('inert');$('next').textContent=step===5?'Vezi steaua completă →':'Următorul gând →';}
+  reveal.onclick=unfold;rotor.append(front,back);card.append(rotor);out.append(card);$('next').textContent='Deschide întrebarea ✧';
+  if(draft.answers[i].trim())unfold();
+ }
+ else {const title=node('h2','Cinci gânduri. O stea doar a ta.');title.id='wizard-title';out.append(title,node('p',`${draft.name}, așa va arăta amintirea ta pentru Antonia.`,'helper'));draft.answers.forEach((a,i)=>{const section=node('div',undefined,'answer');section.append(node('h4',C.QUESTIONS[i]),node('p',a||'Întrebare sărită'));const edit=node('button','Editează ↗','review-edit');edit.type='button';edit.onclick=()=>jumpTo(i+1);section.append(edit);out.append(section);});out.append(node('div',isLive?'Numele și răspunsurile tale vor putea fi citite de sărbătorită și de persoanele care au linkul. Apăsând „Trimite steaua”, alegi să le adaugi în univers.':'Aceasta este o probă: steaua va fi păstrată numai în acest browser. Niciun mesaj nu este trimis sărbătoritei.','consent'));}
  $('wizard').scrollTop=0;
 }
 $('star-form').addEventListener('submit',async e=>{
- e.preventDefault();if(busy)return;capture();if(step===0&&!draft.name.trim()){$('form-error').textContent='Scrie numele tău ca să continuăm.';return;}
+ e.preventDefault();if(busy)return;if(step>0&&step<=5&&!cardOpen){$('wizard-content').querySelector('.open-question').click();return;}capture();if(step===0&&!draft.name.trim()){$('form-error').textContent='Scrie numele tău ca să continuăm.';return;}
  if(step<6){step++;renderWizard();return;}
  const error=C.validate(draft);if(error){$('form-error').textContent=error;return;}
  busy=true;$('next').disabled=true;$('back').disabled=true;$('next').textContent='Se aprinde steaua…';const value=C.normalize(draft);
