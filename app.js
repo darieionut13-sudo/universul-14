@@ -25,7 +25,7 @@ function toast(message){$('toast').textContent=message;$('toast').hidden=false;c
 function saveDraft(){if(!storageWrite(key+':draft',draft))$('form-error').textContent='Browserul nu poate păstra ciorna. Păstrează această fereastră deschisă până trimiți.';}
 function openDialog(el){el.showModal();}
 function dateLabel(){if(!config.eventDate)return '';const d=new Date(config.eventDate+'T12:00:00');return isNaN(d)?'':d.toLocaleDateString('ro-RO',{day:'numeric',month:'long',year:'numeric'});}
-if(config.birthdayName){document.title=`${config.birthdayName} · 14 ani de magie`;$('title').replaceChildren(document.createTextNode(`${config.birthdayName},`),node('br'),node('em','14 ani de magie.'));}
+if(config.birthdayName){document.title=`${config.birthdayName} · 14 ani de magie`;$('title').replaceChildren(document.createTextNode(config.birthdayName),node('em','14 ani de magie'));}
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function celebrate(color=C.COLORS[0]){
  if(reducedMotion.matches)return;
@@ -40,7 +40,7 @@ if('IntersectionObserver' in window){const watch=new IntersectionObserver(entrie
 const hero=document.querySelector('.intro');
 if(window.matchMedia('(hover: hover)').matches&&!reducedMotion.matches){hero.addEventListener('pointermove',e=>{const r=hero.getBoundingClientRect();hero.style.setProperty('--hero-x',((e.clientX-r.left)/r.width-.5)*16+'deg');hero.style.setProperty('--hero-y',-((e.clientY-r.top)/r.height-.5)*12+'deg');});hero.addEventListener('pointerleave',()=>{hero.style.setProperty('--hero-x','0deg');hero.style.setProperty('--hero-y','0deg');});}
 $('footer-event').textContent=[config.birthdayName||'14 ANI',dateLabel()||'O MICĂ INFINITATE'].join(' · ');
-$('mode-note').textContent=isLive?'Mesajele trimise de invitați se adună în același cer. Numele și răspunsurile pot fi citite de cei care au linkul.':'MOD DEMONSTRATIV · Stelele inițiale sunt exemple. Ce adaugi aici rămâne numai în acest browser; nu se trimite sărbătoritei.';
+$('mode-note').textContent=isLive?'Mesajele trimise de invitați se adună în același cer. Numele și răspunsurile pot fi citite de cei care au linkul.':'MOD DEMONSTRATIV · Mesajele de probă rămân doar în acest browser.';
 for(let i=0;i<95;i++){const d=node('i');d.style.left=((i*73.37)%100)+'%';d.style.top=((i*47.73)%100)+'%';d.style.animationDelay=-(i%5)+'s';d.style.opacity=.12+(i%5)/10;$('dust').append(d);}
 function renderSky(){
   $('stars').replaceChildren();$('connections').replaceChildren();$('star-count').textContent=stars.length;$('empty').hidden=!!stars.length;$('random').disabled=!stars.length;
@@ -138,7 +138,7 @@ $('star-form').addEventListener('submit',async e=>{
  }catch(e){$('form-error').textContent=e.message==='local'?'Browserul nu a putut salva steaua. Cuvintele tale sunt încă în formular.':'Steaua nu a fost confirmată de server. Verifică internetul și încearcă din nou. Cuvintele tale au rămas în formular.';}
  finally{busy=false;$('next').disabled=false;$('back').disabled=false;$('next').textContent='Trimite steaua ✧';}
 });
-$('start').onclick=()=>{$('next').hidden=false;start();};$('back').onclick=()=>{capture();step=Math.max(0,step-1);renderWizard();};
+$('start').onclick=()=>{$('next').hidden=false;start();};$('explore').onclick=()=>{openDialog($('universe'));refresh();};$('back').onclick=()=>{capture();step=Math.max(0,step-1);renderWizard();};
 for(const d of document.querySelectorAll('dialog')){d.querySelector('[data-close]').onclick=()=>{if(!busy)d.close();};d.addEventListener('cancel',e=>{if(busy)e.preventDefault();});}
 $('random').onclick=()=>{if(stars.length)readStar(stars[Math.floor(Math.random()*stars.length)]);};$('directory').onclick=()=>{renderDirectory();openDialog($('guests'));};$('search').oninput=renderDirectory;
 $('share').onclick=async()=>{if(location.protocol==='file:'){toast('Copiază linkul după publicarea pe GitHub Pages.');return;}try{await navigator.clipboard.writeText(location.href.split('#')[0]);toast('Link copiat. Trimite-l prietenilor sau folosește-l pentru QR.');}catch{toast('Copiază adresa site-ului din bara browserului.');}};
