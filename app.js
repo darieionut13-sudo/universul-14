@@ -149,6 +149,7 @@ const CHAPTERS = [
  {title:'Un mesaj pentru 18 ani',icon:'✉',theme:'future',caption:'Cuvintele de azi. Un zâmbet de peste ani.',starters:['Dragă Antonia de 18 ani,…','Sper că încă…','Când citești asta, să-ți amintești că…']}
 ];
 let cardOpen=false;
+function jumpTo(target){if(busy)return;capture();if(!draft.name.trim()){$('form-error').textContent='Scrie mai întâi numele tău.';return;}step=target;renderWizard();}
 function renderWizard(){
  const out=$('wizard-content');out.replaceChildren();$('wizard').dataset.view=step>0&&step<=5?'question':step===0?'name':'review';$('next').hidden=step>0&&step<=5;out.dataset.step=String(step);$('form-error').textContent='';$('progress').replaceChildren();for(let i=0;i<7;i++)$('progress').append(node('span',undefined,i<=step?'done':''));$('back').hidden=step===0;$('next').textContent=step===6?'Trimite steaua ✧':'Continuă →';cardOpen=step===0||step===6;
  out.classList.remove('step-arrive');void out.offsetWidth;out.classList.add('step-arrive');
